@@ -46,21 +46,23 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
+// --- загружаем изображение персонажа ---
+const playerImg = new Image();
+playerImg.src = 'player.png'; // 👈
+
 // Игровые переменные
-let player = { x: 50, y: 0, size: 50, vy: 0, jumpPower: -14, onGround: false };
+let player = { x: 50, y: 0, size: 60, vy: 0, jumpPower: -14, onGround: false };
 let groundY = canvas.height - 60;
 let gravity = 0.8;
 let obstacles = [];
-let items = []; // 💎 предметы
+let items = [];
 let score = 0;
 let gameOver = false;
 let speed = 6;
 let spawnTimer = 0;
 let itemTimer = 0;
 
-// Максимальная высота прыжка игрока
-const jumpHeight = (player.jumpPower ** 2) / (2 * gravity); // ≈ 122px
-
+const jumpHeight = (player.jumpPower ** 2) / (2 * gravity);
 player.y = groundY - player.size;
 
 // --- функции ---
@@ -69,14 +71,10 @@ function spawnObstacle() {
   obstacles.push({ x: canvas.width + 10, y: groundY - h, w: 20 + Math.random()*20, h });
 }
 
-// 💎 создаём случайный предмет
 function spawnItem() {
   const size = 20;
-
-  // Размещаем предмет на высоте, где игрок гарантированно может допрыгнуть
-  const minHeightAboveGround = 40; // не совсем у земли
-  const maxHeightAboveGround = Math.max(60, jumpHeight - 20); // чуть ниже максимального прыжка
-
+  const minHeightAboveGround = 40;
+  const maxHeightAboveGround = Math.max(60, jumpHeight - 20);
   const y = groundY - (minHeightAboveGround + Math.random() * (maxHeightAboveGround - minHeightAboveGround));
   items.push({ x: canvas.width + 10, y, size, caught: false });
 }
@@ -103,7 +101,6 @@ canvas.addEventListener('mousedown', e => jump());
 function update() {
   if (gameOver) return;
 
-  // физика игрока
   player.vy += gravity;
   player.y += player.vy;
   if (player.y + player.size >= groundY) {
@@ -112,7 +109,6 @@ function update() {
     player.onGround = true;
   }
 
-  // препятствия
   obstacles.forEach(o => o.x -= speed);
   spawnTimer--;
   if (spawnTimer <= 0) {
@@ -121,7 +117,6 @@ function update() {
   }
   obstacles = obstacles.filter(o => o.x + o.w > -50);
 
-  // 💎 предметы
   items.forEach(i => i.x -= speed);
   itemTimer--;
   if (itemTimer <= 0) {
@@ -130,7 +125,6 @@ function update() {
   }
   items = items.filter(i => i.x + i.size > -50 && !i.caught);
 
-  // столкновения с препятствиями
   for (let o of obstacles) {
     if (player.x < o.x + o.w &&
         player.x + player.size > o.x &&
@@ -140,7 +134,6 @@ function update() {
     }
   }
 
-  // 💎 проверка на сбор предметов
   for (let i of items) {
     if (!i.caught &&
         player.x < i.x + i.size &&
@@ -148,11 +141,10 @@ function update() {
         player.y < i.y + i.size &&
         player.y + player.size > i.y) {
       i.caught = true;
-      score += 100; // +10 очков
+      score += 100;
     }
   }
 
-  // прогресс и сложность
   score++;
   if (score % 1000 === 0) speed += 0.5;
 }
@@ -163,13 +155,17 @@ function draw() {
   ctx.fillStyle = '#dff0ff';
   ctx.fillRect(0,0,canvas.width,canvas.height);
 
-  // земля
   ctx.fillStyle = '#cfcfcf';
   ctx.fillRect(0, groundY, canvas.width, canvas.height - groundY);
 
-  // игрок
-  ctx.fillStyle = '#111';
-  ctx.fillRect(player.x, player.y, player.size, player.size);
+  // --- 🧍‍♂️ игрок теперь рисуется как изображение ---
+  if (playerImg.complete) {
+    ctx.drawImage(playerImg, player.x, player.y, player.size, player.size);
+  } else {
+    // резервный квадрат, пока изображение не загрузилось
+    ctx.fillStyle = '#111';
+    ctx.fillRect(player.x, player.y, player.size, player.size);
+  }
 
   // препятствия
   ctx.fillStyle = '#b84';
@@ -183,7 +179,6 @@ function draw() {
     ctx.fill();
   });
 
-  // очки
   ctx.fillStyle = '#000';
   ctx.font = '18px Arial';
   ctx.fillText('Score: ' + Math.floor(score/10), 12, 28);
