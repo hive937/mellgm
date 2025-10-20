@@ -1,3 +1,40 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Mini Runner</title>
+<style>
+  html,body {
+    height:100%;
+    margin:0;
+    background:#f0f0f0;
+    font-family: Arial, sans-serif;
+  }
+  #game {
+    display:block;
+    margin:0 auto;
+    background:#fff;
+    box-shadow:0 2px 8px rgba(0,0,0,0.1);
+  }
+  .info {
+    text-align:center;
+    margin:8px 0;
+  }
+  button {
+    padding:8px 12px;
+    font-size:14px;
+    cursor:pointer;
+  }
+</style>
+</head>
+<body>
+  <div class="info">
+    <span>Нажми пробел или тапни по canvas, чтобы прыгнуть и поймать предметы.</span>
+    <button id="restart" style="display:none;">Перезапустить</button>
+  </div>
+  <canvas id="game"></canvas>
+
 <script>
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
@@ -23,6 +60,7 @@ let itemTimer = 0;
 
 player.y = groundY - player.size;
 
+// --- функции ---
 function spawnObstacle() {
   const h = 30 + Math.random() * 50;
   obstacles.push({ x: canvas.width + 10, y: groundY - h, w: 20 + Math.random()*20, h });
@@ -42,6 +80,7 @@ function jump() {
   }
 }
 
+// --- управление ---
 document.addEventListener('keydown', e => {
   if (e.code === 'Space') {
     e.preventDefault();
@@ -52,6 +91,7 @@ document.addEventListener('keydown', e => {
 canvas.addEventListener('touchstart', e => { e.preventDefault(); jump(); }, {passive:false});
 canvas.addEventListener('mousedown', e => jump());
 
+// --- обновление состояния ---
 function update() {
   if (gameOver) return;
 
@@ -100,15 +140,16 @@ function update() {
         player.y < i.y + i.size &&
         player.y + player.size > i.y) {
       i.caught = true;
-      score += 100; // +10 очков (помним, счёт делится на 10 при отображении)
+      score += 100; // +10 очков (так как общий счёт делится на 10 при отображении)
     }
   }
 
-  // прогресс
+  // прогресс и сложность
   score++;
   if (score % 1000 === 0) speed += 0.5;
 }
 
+// --- отрисовка ---
 function draw() {
   ctx.clearRect(0,0,canvas.width,canvas.height);
   ctx.fillStyle = '#dff0ff';
@@ -128,7 +169,11 @@ function draw() {
 
   // 💎 предметы
   ctx.fillStyle = '#ff0';
-  items.forEach(i => ctx.beginPath(), ctx.arc(i.x + i.size/2, i.y + i.size/2, i.size/2, 0, Math.PI*2), ctx.fill());
+  items.forEach(i => {
+    ctx.beginPath();
+    ctx.arc(i.x + i.size/2, i.y + i.size/2, i.size/2, 0, Math.PI*2);
+    ctx.fill();
+  });
 
   // очки
   ctx.fillStyle = '#000';
@@ -143,6 +188,7 @@ function draw() {
   }
 }
 
+// --- игровой цикл ---
 function loop() {
   update();
   draw();
@@ -151,6 +197,7 @@ function loop() {
 
 loop();
 
+// --- рестарт ---
 function restart() {
   obstacles = [];
   items = [];
@@ -166,3 +213,5 @@ function restart() {
 }
 document.getElementById('restart').addEventListener('click', restart);
 </script>
+</body>
+</html>
