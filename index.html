@@ -51,12 +51,15 @@ let player = { x: 50, y: 0, size: 50, vy: 0, jumpPower: -14, onGround: false };
 let groundY = canvas.height - 60;
 let gravity = 0.8;
 let obstacles = [];
-let items = []; // 💎 новые предметы
+let items = []; // 💎 предметы
 let score = 0;
 let gameOver = false;
 let speed = 6;
 let spawnTimer = 0;
 let itemTimer = 0;
+
+// Максимальная высота прыжка игрока
+const jumpHeight = (player.jumpPower ** 2) / (2 * gravity); // ≈ 122px
 
 player.y = groundY - player.size;
 
@@ -69,7 +72,12 @@ function spawnObstacle() {
 // 💎 создаём случайный предмет
 function spawnItem() {
   const size = 20;
-  const y = groundY - 100 - Math.random() * 100; // случайная высота над землёй
+
+  // Размещаем предмет на высоте, где игрок гарантированно может допрыгнуть
+  const minHeightAboveGround = 40; // не совсем у земли
+  const maxHeightAboveGround = Math.max(60, jumpHeight - 20); // чуть ниже максимального прыжка
+
+  const y = groundY - (minHeightAboveGround + Math.random() * (maxHeightAboveGround - minHeightAboveGround));
   items.push({ x: canvas.width + 10, y, size, caught: false });
 }
 
@@ -117,7 +125,7 @@ function update() {
   items.forEach(i => i.x -= speed);
   itemTimer--;
   if (itemTimer <= 0) {
-    itemTimer = 120 + Math.floor(Math.random() * 180); // спавн предметов реже
+    itemTimer = 120 + Math.floor(Math.random() * 180);
     spawnItem();
   }
   items = items.filter(i => i.x + i.size > -50 && !i.caught);
@@ -140,7 +148,7 @@ function update() {
         player.y < i.y + i.size &&
         player.y + player.size > i.y) {
       i.caught = true;
-      score += 100; // +10 очков (так как общий счёт делится на 10 при отображении)
+      score += 100; // +10 очков
     }
   }
 
