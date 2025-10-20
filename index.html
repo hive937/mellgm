@@ -1,29 +1,8 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Mini Runner</title>
-<style>
-  html,body { height:100%; margin:0; background:#f0f0f0; font-family: Arial, sans-serif; }
-  #game { display:block; margin:0 auto; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,0.1); }
-  .info { text-align:center; margin:8px 0; }
-  button { padding:8px 12px; font-size:14px; }
-</style>
-</head>
-<body>
-  <div class="info">
-    <span>Нажми пробел или тапни по canvas, чтобы прыгнуть.</span>
-    <button id="restart" style="display:none;">Перезапустить</button>
-  </div>
-  <canvas id="game"></canvas>
-
 <script>
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 
 function resize() {
-  // подгоняем размер под окно — можно менять базовую высоту
   canvas.width = Math.min(1000, window.innerWidth - 20);
   canvas.height = Math.min(400, Math.max(240, Math.floor(window.innerHeight * 0.45)));
 }
@@ -35,16 +14,25 @@ let player = { x: 50, y: 0, size: 50, vy: 0, jumpPower: -14, onGround: false };
 let groundY = canvas.height - 60;
 let gravity = 0.8;
 let obstacles = [];
+let items = []; // 💎 новые предметы
 let score = 0;
 let gameOver = false;
 let speed = 6;
 let spawnTimer = 0;
+let itemTimer = 0;
 
 player.y = groundY - player.size;
 
 function spawnObstacle() {
   const h = 30 + Math.random() * 50;
   obstacles.push({ x: canvas.width + 10, y: groundY - h, w: 20 + Math.random()*20, h });
+}
+
+// 💎 создаём случайный предмет
+function spawnItem() {
+  const size = 20;
+  const y = groundY - 100 - Math.random() * 100; // случайная высота над землёй
+  items.push({ x: canvas.width + 10, y, size, caught: false });
 }
 
 function jump() {
@@ -80,12 +68,21 @@ function update() {
   obstacles.forEach(o => o.x -= speed);
   spawnTimer--;
   if (spawnTimer <= 0) {
-    spawnTimer = 60 + Math.floor(Math.random()*80); // время до следующего спавна
+    spawnTimer = 60 + Math.floor(Math.random()*80);
     spawnObstacle();
   }
   obstacles = obstacles.filter(o => o.x + o.w > -50);
 
-  // столкновения (AABB)
+  // 💎 предметы
+  items.forEach(i => i.x -= speed);
+  itemTimer--;
+  if (itemTimer <= 0) {
+    itemTimer = 120 + Math.floor(Math.random() * 180); // спавн предметов реже
+    spawnItem();
+  }
+  items = items.filter(i => i.x + i.size > -50 && !i.caught);
+
+  // столкновения с препятствиями
   for (let o of obstacles) {
     if (player.x < o.x + o.w &&
         player.x + player.size > o.x &&
@@ -95,13 +92,24 @@ function update() {
     }
   }
 
-  // прогресс/сложность
+  // 💎 проверка на сбор предметов
+  for (let i of items) {
+    if (!i.caught &&
+        player.x < i.x + i.size &&
+        player.x + player.size > i.x &&
+        player.y < i.y + i.size &&
+        player.y + player.size > i.y) {
+      i.caught = true;
+      score += 100; // +10 очков (помним, счёт делится на 10 при отображении)
+    }
+  }
+
+  // прогресс
   score++;
   if (score % 1000 === 0) speed += 0.5;
 }
 
 function draw() {
-  // фон
   ctx.clearRect(0,0,canvas.width,canvas.height);
   ctx.fillStyle = '#dff0ff';
   ctx.fillRect(0,0,canvas.width,canvas.height);
@@ -117,6 +125,10 @@ function draw() {
   // препятствия
   ctx.fillStyle = '#b84';
   obstacles.forEach(o => ctx.fillRect(o.x, o.y, o.w, o.h));
+
+  // 💎 предметы
+  ctx.fillStyle = '#ff0';
+  items.forEach(i => ctx.beginPath(), ctx.arc(i.x + i.size/2, i.y + i.size/2, i.size/2, 0, Math.PI*2), ctx.fill());
 
   // очки
   ctx.fillStyle = '#000';
@@ -141,9 +153,11 @@ loop();
 
 function restart() {
   obstacles = [];
+  items = [];
   score = 0;
   speed = 6;
   spawnTimer = 60;
+  itemTimer = 120;
   gameOver = false;
   player.y = groundY - player.size;
   player.vy = 0;
@@ -152,5 +166,3 @@ function restart() {
 }
 document.getElementById('restart').addEventListener('click', restart);
 </script>
-</body>
-</html>
