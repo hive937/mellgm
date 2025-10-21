@@ -12,7 +12,7 @@
     width: 100%;
     height: 100%;
     overflow: hidden;
-    background: #000; /* фон для проверки */
+    background: #000;
     font-family: Arial, sans-serif;
   }
 
@@ -53,34 +53,44 @@
   <canvas id="game"></canvas>
 
 <script>
-  // --- Telegram Mini App API ---
   const tg = window.Telegram?.WebApp;
-  if (tg) {
-    tg.expand(); // развернуть окно
-    tg.setBackgroundColor('#ffffff');
-    tg.setHeaderColor('#f0f0f0');
-  }
 
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
 
+  // --- надёжное изменение размера ---
   function resize() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    const vw = window.visualViewport?.width || window.innerWidth;
+    const vh = window.visualViewport?.height || window.innerHeight;
+    if (vh < 100) return; // пропускаем, если Telegram ещё не дал правильную высоту
+    canvas.width = vw;
+    canvas.height = vh;
   }
 
-  // важно: Telegram не сразу сообщает правильную высоту
   window.addEventListener('resize', resize);
-  resize();
-  setTimeout(resize, 400); // повтор через 0.4с для подстраховки
+  window.visualViewport?.addEventListener('resize', resize);
 
-  // --- Игра ---
+  // Telegram может сообщить размер позже
+  if (tg) {
+    tg.ready();
+    tg.expand();
+    tg.setBackgroundColor('#ffffff');
+    tg.setHeaderColor('#f0f0f0');
+
+    // когда Telegram готов — подгоняем размер
+    tg.onEvent('viewportChanged', resize);
+  }
+
+  setTimeout(resize, 300);
+  setTimeout(resize, 1000); // запасной вызов через секунду
+
+  // --- игра ---
   const playerImg = new Image();
-  playerImg.src = 'player.png'; // замени на свой путь
+  playerImg.src = 'player.png'; // твоя картинка
 
   let player = { x: 50, y: 0, size: 60, vy: 0, jumpPower: -14, onGround: false };
-  let groundY = canvas.height - 60;
   let gravity = 0.8;
+  let groundY = 0;
   let obstacles = [];
   let items = [];
   let score = 0;
@@ -90,7 +100,10 @@
   let itemTimer = 0;
 
   const jumpHeight = (player.jumpPower ** 2) / (2 * gravity);
-  player.y = groundY - player.size;
+
+  function updateGround() {
+    groundY = canvas.height - 60;
+  }
 
   function spawnObstacle() {
     const h = 30 + Math.random() * 50;
@@ -123,12 +136,9 @@
   canvas.addEventListener('mousedown', e => jump());
 
   function update() {
-    if (gameOver) return;
+    if (gameOver || canvas.height < 100) return;
+    updateGround();
 
-    // пересчитываем землю при каждом кадре
-    groundY = canvas.height - 60;
-
-    // физика игрока
     player.vy += gravity;
     player.y += player.vy;
     if (player.y + player.size >= groundY) {
@@ -137,7 +147,6 @@
       player.onGround = true;
     }
 
-    // препятствия
     obstacles.forEach(o => o.x -= speed);
     spawnTimer--;
     if (spawnTimer <= 0) {
@@ -146,7 +155,6 @@
     }
     obstacles = obstacles.filter(o => o.x + o.w > -50);
 
-    // предметы
     items.forEach(i => i.x -= speed);
     itemTimer--;
     if (itemTimer <= 0) {
@@ -155,7 +163,6 @@
     }
     items = items.filter(i => i.x + i.size > -50 && !i.caught);
 
-    // столкновения с препятствиями
     for (let o of obstacles) {
       if (player.x < o.x + o.w &&
           player.x + player.size > o.x &&
@@ -165,7 +172,6 @@
       }
     }
 
-    // сбор предметов
     for (let i of items) {
       if (!i.caught &&
           player.x < i.x + i.size &&
@@ -180,16 +186,14 @@
 
   function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (canvas.height < 100) return;
 
-    // фон
     ctx.fillStyle = '#dff0ff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // земля
     ctx.fillStyle = '#cfcfcf';
     ctx.fillRect(0, groundY, canvas.width, canvas.height - groundY);
 
-    // игрок
     if (playerImg.complete) {
       ctx.drawImage(playerImg, player.x, player.y, player.size, player.size);
     } else {
@@ -197,11 +201,9 @@
       ctx.fillRect(player.x, player.y, player.size, player.size);
     }
 
-    // препятствия
     ctx.fillStyle = '#b84';
     obstacles.forEach(o => ctx.fillRect(o.x, o.y, o.w, o.h));
 
-    // предметы
     ctx.fillStyle = '#ff0';
     items.forEach(i => {
       ctx.beginPath();
@@ -209,7 +211,6 @@
       ctx.fill();
     });
 
-    // счёт
     ctx.fillStyle = '#000';
     ctx.font = '18px Arial';
     ctx.fillText('Score: ' + score, 12, 28);
@@ -237,6 +238,7 @@
     spawnTimer = 60;
     itemTimer = 120;
     gameOver = false;
+    updateGround();
     player.y = groundY - player.size;
     player.vy = 0;
     player.onGround = true;
