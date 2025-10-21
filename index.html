@@ -48,7 +48,7 @@ resize();
 
 // --- загружаем изображение персонажа ---
 const playerImg = new Image();
-playerImg.src = 'player.png'; // 👈
+playerImg.src = 'player.png'; // 👈 вставь сюда путь к своей картинке
 
 // Игровые переменные
 let player = { x: 50, y: 0, size: 60, vy: 0, jumpPower: -14, onGround: false };
@@ -109,6 +109,7 @@ function update() {
     player.onGround = true;
   }
 
+  // препятствия
   obstacles.forEach(o => o.x -= speed);
   spawnTimer--;
   if (spawnTimer <= 0) {
@@ -117,6 +118,7 @@ function update() {
   }
   obstacles = obstacles.filter(o => o.x + o.w > -50);
 
+  // 💎 предметы
   items.forEach(i => i.x -= speed);
   itemTimer--;
   if (itemTimer <= 0) {
@@ -125,6 +127,7 @@ function update() {
   }
   items = items.filter(i => i.x + i.size > -50 && !i.caught);
 
+  // столкновения с препятствиями
   for (let o of obstacles) {
     if (player.x < o.x + o.w &&
         player.x + player.size > o.x &&
@@ -134,6 +137,7 @@ function update() {
     }
   }
 
+  // 💎 проверка на сбор предметов
   for (let i of items) {
     if (!i.caught &&
         player.x < i.x + i.size &&
@@ -141,12 +145,9 @@ function update() {
         player.y < i.y + i.size &&
         player.y + player.size > i.y) {
       i.caught = true;
-      score += 100;
+      score += 1; // теперь очки только за пойманные предметы
     }
   }
-
-  score++;
-  if (score % 1000 === 0) speed += 0.5;
 }
 
 // --- отрисовка ---
@@ -158,11 +159,10 @@ function draw() {
   ctx.fillStyle = '#cfcfcf';
   ctx.fillRect(0, groundY, canvas.width, canvas.height - groundY);
 
-  // --- 🧍‍♂️ игрок теперь рисуется как изображение ---
+  // --- игрок ---
   if (playerImg.complete) {
     ctx.drawImage(playerImg, player.x, player.y, player.size, player.size);
   } else {
-    // резервный квадрат, пока изображение не загрузилось
     ctx.fillStyle = '#111';
     ctx.fillRect(player.x, player.y, player.size, player.size);
   }
@@ -179,9 +179,10 @@ function draw() {
     ctx.fill();
   });
 
+  // очки
   ctx.fillStyle = '#000';
   ctx.font = '18px Arial';
-  ctx.fillText('Score: ' + Math.floor(score/10), 12, 28);
+  ctx.fillText('Score: ' + score, 12, 28);
 
   if (gameOver) {
     ctx.font = '36px Arial';
