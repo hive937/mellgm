@@ -53,197 +53,225 @@
   <canvas id="game"></canvas>
 
 <script>
-const tg = window.Telegram?.WebApp;
-const canvas = document.getElementById('game');
-const ctx = canvas.getContext('2d');
+  const tg = window.Telegram?.WebApp;
 
-function resize() {
-  const vw = window.visualViewport?.width || window.innerWidth;
-  const vh = window.visualViewport?.height || window.innerHeight;
-  if (vh < 100) return;
-  canvas.width = vw;
-  canvas.height = vh;
-}
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
 
-window.addEventListener('resize', resize);
-window.visualViewport?.addEventListener('resize', resize);
-
-if (tg) {
-  tg.ready();
-  tg.expand();
-  tg.setBackgroundColor('#ffffff');
-  tg.setHeaderColor('#f0f0f0');
-  tg.onEvent('viewportChanged', resize);
-}
-
-setTimeout(resize, 300);
-setTimeout(resize, 1000);
-
-const playerImg = new Image();
-playerImg.src = 'player.png';
-
-let player = { x: 50, y: 0, size: 60, vy: 0, jumpPower: -14, onGround: false };
-let gravity = 0.8;
-let groundY = 0;
-let obstacles = [];
-let items = [];
-let score = 0;
-let gameOver = false;
-let speed = 6;
-let spawnTimer = 0;
-let itemTimer = 0;
-
-const jumpHeight = (player.jumpPower ** 2) / (2 * gravity);
-
-// --- Новое: центрируем действия ---
-function updateGround() {
-  // смещаем “землю” примерно к середине экрана
-  groundY = canvas.height / 2 + 60; // можно подправить цифру для визуального комфорта
-  if (groundY > canvas.height - 50) groundY = canvas.height - 50;
-}
-
-function spawnObstacle() {
-  const h = 30 + Math.random() * 50;
-  obstacles.push({ x: canvas.width + 10, y: groundY - h, w: 20 + Math.random() * 20, h });
-}
-
-function spawnItem() {
-  const size = 20;
-  const minHeightAboveGround = 40;
-  const maxHeightAboveGround = Math.max(60, jumpHeight - 20);
-  const y = groundY - (minHeightAboveGround + Math.random() * (maxHeightAboveGround - minHeightAboveGround));
-  items.push({ x: canvas.width + 10, y, size, caught: false });
-}
-
-function jump() {
-  if (player.onGround && !gameOver) {
-    player.vy = player.jumpPower;
-    player.onGround = false;
+  // --- надёжное изменение размера ---
+  function resize() {
+    const vw = window.visualViewport?.width || window.innerWidth;
+    const vh = window.visualViewport?.height || window.innerHeight;
+    if (vh < 100) return;
+    canvas.width = vw;
+    canvas.height = vh;
   }
-}
 
-document.addEventListener('keydown', e => {
-  if (e.code === 'Space') { e.preventDefault(); if (!gameOver) jump(); }
-  if (e.code === 'Enter' && gameOver) restart();
-});
-canvas.addEventListener('touchstart', e => { e.preventDefault(); jump(); }, { passive: false });
-canvas.addEventListener('mousedown', e => jump());
+  window.addEventListener('resize', resize);
+  window.visualViewport?.addEventListener('resize', resize);
 
-function update() {
-  if (gameOver || canvas.height < 100) return;
-  updateGround();
+  if (tg) {
+    tg.ready();
+    tg.expand();
+    tg.setBackgroundColor('#ffffff');
+    tg.setHeaderColor('#f0f0f0');
+    tg.onEvent('viewportChanged', resize);
+  }
 
-  player.vy += gravity;
-  player.y += player.vy;
-  if (player.y + player.size >= groundY) {
+  setTimeout(resize, 300);
+  setTimeout(resize, 1000);
+
+  // === Игровые объекты ===
+  const playerFrames = [
+    Object.assign(new Image(), { src: 'player1.png' }), // бег 1
+    Object.assign(new Image(), { src: 'player2.png' }), // бег 2
+    Object.assign(new Image(), { src: 'player_jump.png' }) // прыжок
+  ];
+
+  let player = { x: 50, y: 0, size: 60, vy: 0, jumpPower: -14, onGround: false };
+  let gravity = 0.8;
+  let groundY = 0;
+  let obstacles = [];
+  let items = [];
+  let score = 0;
+  let gameOver = false;
+  let speed = 6;
+  let spawnTimer = 0;
+  let itemTimer = 0;
+
+  const jumpHeight = (player.jumpPower ** 2) / (2 * gravity);
+
+  // === Анимация игрока ===
+  let currentFrame = 0;
+  let frameTimer = 0;
+  const frameDelay = 1; // скорость смены кадров
+
+  function updateGround() {
+    groundY = canvas.height / 2 + 100; // игра теперь посередине экрана
+  }
+
+  function spawnObstacle() {
+    const h = 30 + Math.random() * 50;
+    obstacles.push({ x: canvas.width + 10, y: groundY - h, w: 20 + Math.random() * 20, h });
+  }
+
+  function spawnItem() {
+    const size = 20;
+    const minHeightAboveGround = 40;
+    const maxHeightAboveGround = Math.max(60, jumpHeight - 20);
+    const y = groundY - (minHeightAboveGround + Math.random() * (maxHeightAboveGround - minHeightAboveGround));
+    items.push({ x: canvas.width + 10, y, size, caught: false });
+  }
+
+  function jump() {
+    if (player.onGround && !gameOver) {
+      player.vy = player.jumpPower;
+      player.onGround = false;
+    }
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.code === 'Space') {
+      e.preventDefault();
+      if (!gameOver) jump();
+    }
+    if (e.code === 'Enter' && gameOver) restart();
+  });
+  canvas.addEventListener('touchstart', e => { e.preventDefault(); jump(); }, { passive: false });
+  canvas.addEventListener('mousedown', e => jump());
+
+  function update() {
+    if (gameOver || canvas.height < 100) return;
+    updateGround();
+
+    player.vy += gravity;
+    player.y += player.vy;
+    if (player.y + player.size >= groundY) {
+      player.y = groundY - player.size;
+      player.vy = 0;
+      player.onGround = true;
+    }
+
+    obstacles.forEach(o => o.x -= speed);
+    spawnTimer--;
+    if (spawnTimer <= 0) {
+      spawnTimer = 60 + Math.floor(Math.random() * 80);
+      spawnObstacle();
+    }
+    obstacles = obstacles.filter(o => o.x + o.w > -50);
+
+    items.forEach(i => i.x -= speed);
+    itemTimer--;
+    if (itemTimer <= 0) {
+      itemTimer = 120 + Math.floor(Math.random() * 180);
+      spawnItem();
+    }
+    items = items.filter(i => i.x + i.size > -50 && !i.caught);
+
+    for (let o of obstacles) {
+      if (player.x < o.x + o.w &&
+          player.x + player.size > o.x &&
+          player.y + player.size > o.y) {
+        gameOver = true;
+        document.getElementById('restart').style.display = 'inline-block';
+      }
+    }
+
+    for (let i of items) {
+      if (!i.caught &&
+          player.x < i.x + i.size &&
+          player.x + player.size > i.x &&
+          player.y < i.y + i.size &&
+          player.y + player.size > i.y) {
+        i.caught = true;
+        score += 1;
+      }
+    }
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (canvas.height < 100) return;
+
+    // фон
+    ctx.fillStyle = '#dff0ff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // земля
+    ctx.fillStyle = '#cfcfcf';
+    ctx.fillRect(0, groundY, canvas.width, canvas.height - groundY);
+
+    // анимация персонажа
+    let frameToDraw;
+
+    if (!player.onGround) {
+      // прыжок
+      frameToDraw = playerFrames[2];
+    } else {
+      // бег
+      frameTimer++;
+      if (frameTimer >= frameDelay) {
+        currentFrame = (currentFrame + 1) % 2; // только первые 2 кадра бегают
+        frameTimer = 0;
+      }
+      frameToDraw = playerFrames[currentFrame];
+    }
+
+    if (frameToDraw.complete) {
+      ctx.drawImage(frameToDraw, player.x, player.y, player.size, player.size);
+    } else {
+      ctx.fillStyle = '#111';
+      ctx.fillRect(player.x, player.y, player.size, player.size);
+    }
+
+    // препятствия
+    ctx.fillStyle = '#b84';
+    obstacles.forEach(o => ctx.fillRect(o.x, o.y, o.w, o.h));
+
+    // предметы
+    ctx.fillStyle = '#ff0';
+    items.forEach(i => {
+      ctx.beginPath();
+      ctx.arc(i.x + i.size/2, i.y + i.size/2, i.size/2, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    // очки (теперь под центром)
+    ctx.fillStyle = '#000';
+    ctx.font = '20px Arial';
+    ctx.fillText('Score: ' + score, 12, canvas.height / 2 + 160);
+
+    if (gameOver) {
+      ctx.font = '36px Arial';
+      ctx.fillText('GAME OVER', canvas.width/2 - 110, canvas.height/2);
+      ctx.font = '16px Arial';
+      ctx.fillText('Нажми "Перезапустить" или Enter', canvas.width/2 - 130, canvas.height/2 + 30);
+    }
+  }
+
+  function loop() {
+    update();
+    draw();
+    requestAnimationFrame(loop);
+  }
+  loop();
+
+  function restart() {
+    obstacles = [];
+    items = [];
+    score = 0;
+    speed = 6;
+    spawnTimer = 60;
+    itemTimer = 120;
+    gameOver = false;
+    updateGround();
     player.y = groundY - player.size;
     player.vy = 0;
     player.onGround = true;
+    document.getElementById('restart').style.display = 'none';
   }
 
-  obstacles.forEach(o => o.x -= speed);
-  spawnTimer--;
-  if (spawnTimer <= 0) {
-    spawnTimer = 60 + Math.floor(Math.random() * 80);
-    spawnObstacle();
-  }
-  obstacles = obstacles.filter(o => o.x + o.w > -50);
-
-  items.forEach(i => i.x -= speed);
-  itemTimer--;
-  if (itemTimer <= 0) {
-    itemTimer = 120 + Math.floor(Math.random() * 180);
-    spawnItem();
-  }
-  items = items.filter(i => i.x + i.size > -50 && !i.caught);
-
-  for (let o of obstacles) {
-    if (player.x < o.x + o.w &&
-        player.x + player.size > o.x &&
-        player.y + player.size > o.y) {
-      gameOver = true;
-      document.getElementById('restart').style.display = 'inline-block';
-    }
-  }
-
-  for (let i of items) {
-    if (!i.caught &&
-        player.x < i.x + i.size &&
-        player.x + player.size > i.x &&
-        player.y < i.y + i.size &&
-        player.y + player.size > i.y) {
-      i.caught = true;
-      score += 1;
-    }
-  }
-}
-
-function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  if (canvas.height < 100) return;
-
-  ctx.fillStyle = '#dff0ff';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  // земля (центр экрана)
-  ctx.fillStyle = '#cfcfcf';
-  ctx.fillRect(0, groundY, canvas.width, canvas.height - groundY);
-
-  // игрок
-  if (playerImg.complete) {
-    ctx.drawImage(playerImg, player.x, player.y, player.size, player.size);
-  } else {
-    ctx.fillStyle = '#111';
-    ctx.fillRect(player.x, player.y, player.size, player.size);
-  }
-
-  // препятствия
-  ctx.fillStyle = '#b84';
-  obstacles.forEach(o => ctx.fillRect(o.x, o.y, o.w, o.h));
-
-  // предметы
-  ctx.fillStyle = '#ff0';
-  items.forEach(i => {
-    ctx.beginPath();
-    ctx.arc(i.x + i.size/2, i.y + i.size/2, i.size/2, 0, Math.PI * 2);
-    ctx.fill();
-  });
-
-  // счёт (ниже середины экрана)
-  ctx.fillStyle = '#000';
-  ctx.font = '24px Arial';
-  ctx.fillText('Score: ' + score, 20, canvas.height / 2 + 120);
-
-  if (gameOver) {
-    ctx.font = '36px Arial';
-    ctx.fillText('GAME OVER', canvas.width/2 - 110, canvas.height/2);
-    ctx.font = '16px Arial';
-    ctx.fillText('Нажми кнопку "Перезапустить" или Enter', canvas.width/2 - 150, canvas.height/2 + 30);
-  }
-}
-
-function loop() {
-  update();
-  draw();
-  requestAnimationFrame(loop);
-}
-loop();
-
-function restart() {
-  obstacles = [];
-  items = [];
-  score = 0;
-  speed = 6;
-  spawnTimer = 60;
-  itemTimer = 120;
-  gameOver = false;
-  updateGround();
-  player.y = groundY - player.size;
-  player.vy = 0;
-  player.onGround = true;
-  document.getElementById('restart').style.display = 'none';
-}
-document.getElementById('restart').addEventListener('click', restart);
+  document.getElementById('restart').addEventListener('click', restart);
 </script>
 </body>
 </html>
