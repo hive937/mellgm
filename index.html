@@ -84,8 +84,7 @@
   // === Игровые объекты ===
   const playerFrames = [
     Object.assign(new Image(), { src: 'player1.png' }), // бег 1
-    Object.assign(new Image(), { src: 'player2.png' }), // бег 2
-    Object.assign(new Image(), { src: 'player_jump.png' }) // прыжок
+    Object.assign(new Image(), { src: 'player2.png' })  // бег 2
   ];
 
   let player = { x: 50, y: 0, size: 60, vy: 0, jumpPower: -14, onGround: false };
@@ -104,7 +103,7 @@
   // === Анимация игрока ===
   let currentFrame = 0;
   let frameTimer = 0;
-  const frameDelay = 1; // скорость смены кадров
+  const frameDelay = 10; // скорость смены кадров
 
   function updateGround() {
     groundY = canvas.height / 2 + 100; // игра теперь посередине экрана
@@ -201,17 +200,16 @@
     ctx.fillStyle = '#cfcfcf';
     ctx.fillRect(0, groundY, canvas.width, canvas.height - groundY);
 
-    // анимация персонажа
+    // кадр персонажа
     let frameToDraw;
-
     if (!player.onGround) {
-      // прыжок
-      frameToDraw = playerFrames[2];
+      // во время прыжка просто используем первый кадр
+      frameToDraw = playerFrames[0];
     } else {
       // бег
       frameTimer++;
       if (frameTimer >= frameDelay) {
-        currentFrame = (currentFrame + 1) % 2; // только первые 2 кадра бегают
+        currentFrame = (currentFrame + 1) % 2;
         frameTimer = 0;
       }
       frameToDraw = playerFrames[currentFrame];
@@ -236,7 +234,7 @@
       ctx.fill();
     });
 
-    // очки (теперь под центром)
+    // очки (под центром)
     ctx.fillStyle = '#000';
     ctx.font = '20px Arial';
     ctx.fillText('Score: ' + score, 12, canvas.height / 2 + 160);
