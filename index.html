@@ -87,6 +87,13 @@
     Object.assign(new Image(), { src: 'player2.png' })  // бег 2
   ];
 
+  const itemSprites = [
+    Object.assign(new Image(), { src: 'item1.png' }),
+    Object.assign(new Image(), { src: 'item2.png' }),
+    Object.assign(new Image(), { src: 'item3.png' }),
+    Object.assign(new Image(), { src: 'item4.png' })
+  ];
+  
   let player = { x: 50, y: 0, size: 60, vy: 0, jumpPower: -14, onGround: false };
   let gravity = 0.8;
   let groundY = 0;
@@ -115,12 +122,14 @@
   }
 
   function spawnItem() {
-    const size = 20;
+    const size = 32; // можешь менять под размер спрайтов
     const minHeightAboveGround = 40;
     const maxHeightAboveGround = Math.max(60, jumpHeight - 20);
     const y = groundY - (minHeightAboveGround + Math.random() * (maxHeightAboveGround - minHeightAboveGround));
-    items.push({ x: canvas.width + 10, y, size, caught: false });
+    const spriteIndex = Math.floor(Math.random() * itemSprites.length);
+  items.push({ x: canvas.width + 10, y, size, spriteIndex, caught: false });
   }
+
 
   function jump() {
     if (player.onGround && !gameOver) {
@@ -230,12 +239,17 @@
     ctx.fillStyle = '#b84';
     obstacles.forEach(o => ctx.fillRect(o.x, o.y, o.w, o.h));
 
-    // предметы
-    ctx.fillStyle = '#ff0';
+    // предметы (теперь спрайты)
     items.forEach(i => {
-      ctx.beginPath();
-      ctx.arc(i.x + i.size/2, i.y + i.size/2, i.size/2, 0, Math.PI * 2);
-      ctx.fill();
+      const img = itemSprites[i.spriteIndex];
+      if (img.complete) {
+        ctx.drawImage(img, i.x, i.y, i.size, i.size);
+      } else {
+        ctx.fillStyle = '#ff0';
+        ctx.beginPath();
+        ctx.arc(i.x + i.size/2, i.y + i.size/2, i.size/2, 0, Math.PI * 2);
+        ctx.fill();
+      }
     });
 
     // очки (под центром)
@@ -277,4 +291,5 @@
 </script>
 </body>
 </html>
+
 
