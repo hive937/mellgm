@@ -216,7 +216,11 @@
     }
 
     if (frameToDraw.complete) {
-      ctx.drawImage(frameToDraw, player.x, player.y, player.size, player.size);
+      const scaleX = 1.2; // ширина (1.0 = без изменений, 1.2 = +20%)
+      const scaleY = 1.0; // высота
+      const drawWidth = player.size * scaleX;
+      const drawHeight = player.size * scaleY;
+      ctx.drawImage(frameToDraw, player.x, player.y - (drawHeight - player.size), drawWidth, drawHeight);
     } else {
       ctx.fillStyle = '#111';
       ctx.fillRect(player.x, player.y, player.size, player.size);
@@ -273,3 +277,4 @@
 </script>
 </body>
 </html>
+
