@@ -68,9 +68,7 @@
     transition: 0.2s;
   }
 
-  .menu button:hover {
-    background: #005fd1;
-  }
+  .menu button:hover { background: #005fd1; }
 
   button#restart {
     padding: 8px 12px;
@@ -85,7 +83,6 @@
     <button id="restart" style="display:none;">Перезапустить</button>
   </div>
 
-  <!-- Главное меню -->
   <div id="mainMenu" class="menu">
     <h1>🏃‍♂️ Mini Runner</h1>
     <button id="startGame">▶️ Старт</button>
@@ -153,6 +150,11 @@
   let frameTimer = 0;
   const frameDelay = 10;
 
+  // === смерть и мигание ===
+  let deathAnimation = false;
+  let deathTimer = 0;
+  let blinkState = true;
+
   function updateGround() {
     groundY = canvas.height / 2 + 100;
   }
@@ -168,7 +170,15 @@
     const maxHeightAboveGround = Math.max(60, jumpHeight - 20);
     const y = groundY - (minHeightAboveGround + Math.random() * (maxHeightAboveGround - minHeightAboveGround));
     const spriteIndex = Math.floor(Math.random() * itemSprites.length);
-    items.push({ x: canvas.width + 10, y, size, spriteIndex, caught: false });
+    items.push({
+      x: canvas.width + 10,
+      y,
+      baseY: y,              // запоминаем базовую позицию
+      size,
+      spriteIndex,
+      caught: false,
+      phase: Math.random()*Math.PI*2 // случайная фаза для покачивания
+    });
   }
 
   function jump() {
@@ -182,7 +192,7 @@
     if (!gameStarted && e.code === 'Space') startGame();
     if (e.code === 'Space') {
       e.preventDefault();
-      if (!gameOver && gameStarted) jump();
+      if (!gameOver && gameStarted && !deathAnimation) jump();
     }
     if (e.code === 'Enter' && gameOver) restart();
   });
@@ -190,16 +200,28 @@
   canvas.addEventListener('touchstart', e => { 
     e.preventDefault(); 
     if (!gameStarted) startGame();
-    else jump();
+    else if (!deathAnimation) jump();
   }, { passive: false });
 
   canvas.addEventListener('mousedown', e => {
     if (!gameStarted) startGame();
-    else jump();
+    else if (!deathAnimation) jump();
   });
 
   function update() {
     if (!gameStarted || gameOver || canvas.height < 100) return;
+
+    // если проигрышная анимация идёт
+    if (deathAnimation) {
+      deathTimer++;
+      if (deathTimer % 10 === 0) blinkState = !blinkState; // мигание
+      if (deathTimer > 60) { // после ~1 сек
+        deathAnimation = false;
+        gameOver = true;
+        restartButton.style.display = 'inline-block';
+      }
+      return; // всё остальное застывает
+    }
 
     updateGround();
     player.vy += gravity;
@@ -218,7 +240,13 @@
     }
     obstacles = obstacles.filter(o => o.x + o.w > -50);
 
-    items.forEach(i => i.x -= speed);
+    // движение и покачивание предметов
+    items.forEach(i => {
+      i.x -= speed;
+      i.phase += 0.05; // плавное изменение фазы
+      i.y = i.baseY + Math.sin(i.phase) * 5; // лёгкое колебание вверх/вниз
+    });
+
     itemTimer--;
     if (itemTimer <= 0) {
       itemTimer = 120 + Math.floor(Math.random() * 180);
@@ -226,12 +254,15 @@
     }
     items = items.filter(i => i.x + i.size > -50 && !i.caught);
 
+    // столкновение
     for (let o of obstacles) {
       if (player.x < o.x + o.w &&
           player.x + player.size > o.x &&
           player.y + player.size > o.y) {
-        gameOver = true;
-        restartButton.style.display = 'inline-block';
+        deathAnimation = true;
+        deathTimer = 0;
+        blinkState = true;
+        return; // останавливаем остальное
       }
     }
 
@@ -270,12 +301,11 @@
     const scaleX = 1.2, scaleY = 1.0;
     const drawWidth = player.size * scaleX;
     const drawHeight = player.size * scaleY;
-    if (frameToDraw.complete)
+
+    if (blinkState && frameToDraw.complete)
       ctx.drawImage(frameToDraw, player.x, player.y - (drawHeight - player.size), drawWidth, drawHeight);
-    else {
-      ctx.fillStyle = '#111';
-      ctx.fillRect(player.x, player.y, player.size, player.size);
-    }
+    else if (blinkState)
+      ctx.fillStyle = '#111', ctx.fillRect(player.x, player.y, player.size, player.size);
 
     ctx.fillStyle = '#b84';
     obstacles.forEach(o => ctx.fillRect(o.x, o.y, o.w, o.h));
@@ -318,6 +348,9 @@
     spawnTimer = 60;
     itemTimer = 120;
     gameOver = false;
+    deathAnimation = false;
+    deathTimer = 0;
+    blinkState = true;
     updateGround();
     player.y = groundY - player.size;
     player.vy = 0;
