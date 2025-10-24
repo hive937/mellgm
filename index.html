@@ -123,6 +123,9 @@
   setTimeout(resize, 300);
   setTimeout(resize, 1000);
 
+  // === СПРАЙТЫ ===
+  const bgImage = Object.assign(new Image(), { src: 'bg1.png' });
+
   const playerFrames = [
     Object.assign(new Image(), { src: 'player1.png' }),
     Object.assign(new Image(), { src: 'player2.png' })
@@ -150,6 +153,10 @@
   let frameTimer = 0;
   const frameDelay = 10;
 
+  // === фон ===
+  let bgX = 0;
+  const bgSpeedFactor = 0.5; // 0.5 — фон движется медленнее (параллакс)
+
   // === смерть и мигание ===
   let deathAnimation = false;
   let deathTimer = 0;
@@ -173,11 +180,11 @@
     items.push({
       x: canvas.width + 10,
       y,
-      baseY: y,              // запоминаем базовую позицию
+      baseY: y,
       size,
       spriteIndex,
       caught: false,
-      phase: Math.random()*Math.PI*2 // случайная фаза для покачивания
+      phase: Math.random() * Math.PI * 2
     });
   }
 
@@ -211,19 +218,24 @@
   function update() {
     if (!gameStarted || gameOver || canvas.height < 100) return;
 
-    // если проигрышная анимация идёт
+    // смерть / мигание
     if (deathAnimation) {
       deathTimer++;
-      if (deathTimer % 10 === 0) blinkState = !blinkState; // мигание
-      if (deathTimer > 60) { // после ~1 сек
+      if (deathTimer % 10 === 0) blinkState = !blinkState;
+      if (deathTimer > 60) {
         deathAnimation = false;
         gameOver = true;
         restartButton.style.display = 'inline-block';
       }
-      return; // всё остальное застывает
+      return;
     }
 
+    // движение фона
+    bgX -= speed * bgSpeedFactor;
+    if (bgX <= -canvas.width) bgX = 0;
+
     updateGround();
+
     player.vy += gravity;
     player.y += player.vy;
     if (player.y + player.size >= groundY) {
@@ -240,11 +252,10 @@
     }
     obstacles = obstacles.filter(o => o.x + o.w > -50);
 
-    // движение и покачивание предметов
     items.forEach(i => {
       i.x -= speed;
-      i.phase += 0.05; // плавное изменение фазы
-      i.y = i.baseY + Math.sin(i.phase) * 5; // лёгкое колебание вверх/вниз
+      i.phase += 0.05;
+      i.y = i.baseY + Math.sin(i.phase) * 5;
     });
 
     itemTimer--;
@@ -254,7 +265,7 @@
     }
     items = items.filter(i => i.x + i.size > -50 && !i.caught);
 
-    // столкновение
+    // столкновения
     for (let o of obstacles) {
       if (player.x < o.x + o.w &&
           player.x + player.size > o.x &&
@@ -262,7 +273,7 @@
         deathAnimation = true;
         deathTimer = 0;
         blinkState = true;
-        return; // останавливаем остальное
+        return;
       }
     }
 
@@ -282,11 +293,20 @@
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     if (!gameStarted || canvas.height < 100) return;
 
-    ctx.fillStyle = '#dff0ff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // фон
+    if (bgImage.complete) {
+      ctx.drawImage(bgImage, bgX, 0, canvas.width, canvas.height);
+      ctx.drawImage(bgImage, bgX + canvas.width, 0, canvas.width, canvas.height);
+    } else {
+      ctx.fillStyle = '#dff0ff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    // земля
     ctx.fillStyle = '#cfcfcf';
     ctx.fillRect(0, groundY, canvas.width, canvas.height - groundY);
 
+    // игрок
     let frameToDraw;
     if (!player.onGround) frameToDraw = playerFrames[0];
     else {
@@ -304,8 +324,6 @@
 
     if (blinkState && frameToDraw.complete)
       ctx.drawImage(frameToDraw, player.x, player.y - (drawHeight - player.size), drawWidth, drawHeight);
-    else if (blinkState)
-      ctx.fillStyle = '#111', ctx.fillRect(player.x, player.y, player.size, player.size);
 
     ctx.fillStyle = '#b84';
     obstacles.forEach(o => ctx.fillRect(o.x, o.y, o.w, o.h));
@@ -351,6 +369,7 @@
     deathAnimation = false;
     deathTimer = 0;
     blinkState = true;
+    bgX = 0;
     updateGround();
     player.y = groundY - player.size;
     player.vy = 0;
@@ -364,6 +383,7 @@
     score = 0;
     obstacles = [];
     items = [];
+    bgX = 0;
     player.y = groundY - player.size;
     player.vy = 0;
     player.onGround = true;
