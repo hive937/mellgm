@@ -38,7 +38,41 @@
     padding: 6px 0;
   }
 
-  button {
+  .menu {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, #b5e0ff, #f0f0f0);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 20;
+    text-align: center;
+  }
+
+  .menu h1 {
+    font-size: 40px;
+    color: #222;
+    margin-bottom: 30px;
+  }
+
+  .menu button {
+    padding: 12px 24px;
+    font-size: 18px;
+    border: none;
+    border-radius: 10px;
+    background: #0078ff;
+    color: white;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    transition: 0.2s;
+  }
+
+  .menu button:hover {
+    background: #005fd1;
+  }
+
+  button#restart {
     padding: 8px 12px;
     font-size: 14px;
     cursor: pointer;
@@ -50,6 +84,13 @@
     <span>Нажми пробел или тапни, чтобы прыгнуть и ловить предметы!</span>
     <button id="restart" style="display:none;">Перезапустить</button>
   </div>
+
+  <!-- Главное меню -->
+  <div id="mainMenu" class="menu">
+    <h1>🏃‍♂️ Mini Runner</h1>
+    <button id="startGame">▶️ Старт</button>
+  </div>
+
   <canvas id="game"></canvas>
 
 <script>
@@ -57,8 +98,12 @@
 
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
+  const mainMenu = document.getElementById('mainMenu');
+  const startButton = document.getElementById('startGame');
+  const restartButton = document.getElementById('restart');
 
-  // --- надёжное изменение размера ---
+  let gameStarted = false;
+
   function resize() {
     const vw = window.visualViewport?.width || window.innerWidth;
     const vh = window.visualViewport?.height || window.innerHeight;
@@ -81,10 +126,9 @@
   setTimeout(resize, 300);
   setTimeout(resize, 1000);
 
-  // === Игровые объекты ===
   const playerFrames = [
-    Object.assign(new Image(), { src: 'player1.png' }), // бег 1
-    Object.assign(new Image(), { src: 'player2.png' })  // бег 2
+    Object.assign(new Image(), { src: 'player1.png' }),
+    Object.assign(new Image(), { src: 'player2.png' })
   ];
 
   const itemSprites = [
@@ -93,7 +137,7 @@
     Object.assign(new Image(), { src: 'item3.png' }),
     Object.assign(new Image(), { src: 'item4.png' })
   ];
-  
+
   let player = { x: 50, y: 0, size: 60, vy: 0, jumpPower: -14, onGround: false };
   let gravity = 0.8;
   let groundY = 0;
@@ -104,16 +148,13 @@
   let speed = 6;
   let spawnTimer = 0;
   let itemTimer = 0;
-
   const jumpHeight = (player.jumpPower ** 2) / (2 * gravity);
-
-  // === Анимация игрока ===
   let currentFrame = 0;
   let frameTimer = 0;
-  const frameDelay = 10; // скорость смены кадров
+  const frameDelay = 10;
 
   function updateGround() {
-    groundY = canvas.height / 2 + 100; // игра теперь посередине экрана
+    groundY = canvas.height / 2 + 100;
   }
 
   function spawnObstacle() {
@@ -122,14 +163,13 @@
   }
 
   function spawnItem() {
-    const size = 32; // можешь менять под размер спрайтов
+    const size = 40;
     const minHeightAboveGround = 40;
     const maxHeightAboveGround = Math.max(60, jumpHeight - 20);
     const y = groundY - (minHeightAboveGround + Math.random() * (maxHeightAboveGround - minHeightAboveGround));
     const spriteIndex = Math.floor(Math.random() * itemSprites.length);
-  items.push({ x: canvas.width + 10, y, size, spriteIndex, caught: false });
+    items.push({ x: canvas.width + 10, y, size, spriteIndex, caught: false });
   }
-
 
   function jump() {
     if (player.onGround && !gameOver) {
@@ -139,19 +179,29 @@
   }
 
   document.addEventListener('keydown', e => {
+    if (!gameStarted && e.code === 'Space') startGame();
     if (e.code === 'Space') {
       e.preventDefault();
-      if (!gameOver) jump();
+      if (!gameOver && gameStarted) jump();
     }
     if (e.code === 'Enter' && gameOver) restart();
   });
-  canvas.addEventListener('touchstart', e => { e.preventDefault(); jump(); }, { passive: false });
-  canvas.addEventListener('mousedown', e => jump());
+
+  canvas.addEventListener('touchstart', e => { 
+    e.preventDefault(); 
+    if (!gameStarted) startGame();
+    else jump();
+  }, { passive: false });
+
+  canvas.addEventListener('mousedown', e => {
+    if (!gameStarted) startGame();
+    else jump();
+  });
 
   function update() {
-    if (gameOver || canvas.height < 100) return;
-    updateGround();
+    if (!gameStarted || gameOver || canvas.height < 100) return;
 
+    updateGround();
     player.vy += gravity;
     player.y += player.vy;
     if (player.y + player.size >= groundY) {
@@ -181,7 +231,7 @@
           player.x + player.size > o.x &&
           player.y + player.size > o.y) {
         gameOver = true;
-        document.getElementById('restart').style.display = 'inline-block';
+        restartButton.style.display = 'inline-block';
       }
     }
 
@@ -199,23 +249,16 @@
 
   function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    if (canvas.height < 100) return;
+    if (!gameStarted || canvas.height < 100) return;
 
-    // фон
     ctx.fillStyle = '#dff0ff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // земля
     ctx.fillStyle = '#cfcfcf';
     ctx.fillRect(0, groundY, canvas.width, canvas.height - groundY);
 
-    // кадр персонажа
     let frameToDraw;
-    if (!player.onGround) {
-      // во время прыжка просто используем первый кадр
-      frameToDraw = playerFrames[0];
-    } else {
-      // бег
+    if (!player.onGround) frameToDraw = playerFrames[0];
+    else {
       frameTimer++;
       if (frameTimer >= frameDelay) {
         currentFrame = (currentFrame + 1) % 2;
@@ -224,35 +267,30 @@
       frameToDraw = playerFrames[currentFrame];
     }
 
-    if (frameToDraw.complete) {
-      const scaleX = 1.2; // ширина (1.0 = без изменений, 1.2 = +20%)
-      const scaleY = 1.0; // высота
-      const drawWidth = player.size * scaleX;
-      const drawHeight = player.size * scaleY;
+    const scaleX = 1.2, scaleY = 1.0;
+    const drawWidth = player.size * scaleX;
+    const drawHeight = player.size * scaleY;
+    if (frameToDraw.complete)
       ctx.drawImage(frameToDraw, player.x, player.y - (drawHeight - player.size), drawWidth, drawHeight);
-    } else {
+    else {
       ctx.fillStyle = '#111';
       ctx.fillRect(player.x, player.y, player.size, player.size);
     }
 
-    // препятствия
     ctx.fillStyle = '#b84';
     obstacles.forEach(o => ctx.fillRect(o.x, o.y, o.w, o.h));
 
-    // предметы (теперь спрайты)
     items.forEach(i => {
       const img = itemSprites[i.spriteIndex];
-      if (img.complete) {
-        ctx.drawImage(img, i.x, i.y, i.size, i.size);
-      } else {
+      if (img.complete) ctx.drawImage(img, i.x, i.y, i.size, i.size);
+      else {
         ctx.fillStyle = '#ff0';
         ctx.beginPath();
-        ctx.arc(i.x + i.size/2, i.y + i.size/2, i.size/2, 0, Math.PI * 2);
+        ctx.arc(i.x + i.size/2, i.y + i.size/2, i.size/2, 0, Math.PI*2);
         ctx.fill();
       }
     });
 
-    // очки (под центром)
     ctx.fillStyle = '#000';
     ctx.font = '20px Arial';
     ctx.fillText('Score: ' + score, 12, canvas.height / 2 + 160);
@@ -284,12 +322,23 @@
     player.y = groundY - player.size;
     player.vy = 0;
     player.onGround = true;
-    document.getElementById('restart').style.display = 'none';
+    restartButton.style.display = 'none';
   }
 
-  document.getElementById('restart').addEventListener('click', restart);
+  function startGame() {
+    mainMenu.style.display = 'none';
+    restartButton.style.display = 'none';
+    score = 0;
+    obstacles = [];
+    items = [];
+    player.y = groundY - player.size;
+    player.vy = 0;
+    player.onGround = true;
+    gameStarted = true;
+  }
+
+  startButton.addEventListener('click', startGame);
+  restartButton.addEventListener('click', restart);
 </script>
 </body>
 </html>
-
-
